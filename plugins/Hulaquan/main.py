@@ -1,27 +1,46 @@
+"""Hulaquan plugin entry-point.
+
+`Hulaquan` now retrieves its persistent state from
+``services.compat.CompatContext``.  Production environments keep using the
+legacy JSON ``DataManager`` singletons via :func:`get_default_context`, while
+tests (and future service-backed deployments) can pass a custom context through
+the plugin constructor.  The module-level ``User``, ``Alias`` … references are
+updated through :func:`plugins.Hulaquan.data_managers.use_compat_context` so
+command handlers keep receiving the same objects regardless of how the context
+is provided.
+"""
+
 from datetime import timedelta
 import traceback, time, asyncio, re
 import functools
+
 from ncatbot.plugin import BasePlugin, CompatibleEnrollment, Event
 from ncatbot.core import GroupMessage, PrivateMessage, BaseMessage
+from ncatbot.utils.logger import get_log
+
+from services.compat import CompatContext
+
 from .Exceptions import RequestTimeoutException
-from plugins.Hulaquan.data_managers import Saoju, Stats, Alias, Hlq, User, save_all
-from plugins.Hulaquan.StatsDataManager import StatsDataManager, maxLatestReposCount
-from plugins.Hulaquan.SaojuDataManager import SaojuDataManager
-from plugins.Hulaquan.AliasManager import AliasManager
-from plugins.Hulaquan.HulaquanDataManager import HulaquanDataManager
-from plugins.AdminPlugin.UsersManager import UsersManager
+from plugins.Hulaquan.data_managers import (
+    Saoju,
+    Stats,
+    Alias,
+    Hlq,
+    User,
+    save_all,
+    use_compat_context,
+)
+from plugins.Hulaquan.StatsDataManager import maxLatestReposCount
 from .user_func_help import *
 from .utils import parse_text_to_dict_with_mandatory_check, standardize_datetime, dateTimeToStr
-from ncatbot.utils.logger import get_log
 
 bot = CompatibleEnrollment  # 兼容回调函数注册器
 
 log = get_log()
-Stats: StatsDataManager
-User: UsersManager
-Alias: AliasManager
-Saoju: SaojuDataManager
-Hlq: HulaquanDataManager
+
+
+def _install_context(context: CompatContext | None) -> CompatContext:
+    return use_compat_context(context)
 
 
 
@@ -100,13 +119,17 @@ def user_command_wrapper(command_name):
 
 
 class Hulaquan(BasePlugin):
-    
+
     name = "Hulaquan"  # 插件名称
     version = "0.0.5"  # 插件版本
     author = "摇摇杯"  # 插件作者
     info = "与呼啦圈学生票相关的功能"  # 插件描述
     dependencies = {
         }  # 插件依赖，格式: {"插件名": "版本要求"}
+
+    def __init__(self, *args, compat_context: CompatContext | None = None, **kwargs):
+        self.compat_context = _install_context(compat_context)
+        super().__init__(*args, **kwargs)
     
     # Notion 配置
     # 方案 1：直接设置帮助文档的公开链接（推荐）
@@ -621,9 +644,10 @@ class Hulaquan(BasePlugin):
                 stat_pfx = PREFIXES[stat]
                 stats_ps.append(stat_pfx)
                 t_m = [tickets[t]['message'] for t in t_ids]
-                m = f"{stat_pfx}提醒：\n{'\n'.join(t_m)}"
+                joined_messages = "\n".join(t_m)
+                m = f"{stat_pfx}提醒：\n{joined_messages}"
                 messages[-1].append(m)
-            messages[-1][0] = f"{"|".join(stats_ps)}提醒：\n" + messages[-1][0]
+            messages[-1][0] = f"{'|'.join(stats_ps)}提醒：\n" + messages[-1][0]
         return messages
         
     def register_pending_tickets_announcer(self):

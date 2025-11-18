@@ -1,10 +1,19 @@
+"""Administrative commands that rely on the compat facade for state access.
+
+The module now consumes :class:`services.compat.CompatContext` so that unit
+tests or future service layers can inject SQLite-backed implementations.  When
+no context is provided the plugin falls back to ``get_default_context`` which
+wraps the legacy JSON ``UsersManager`` singleton.
+"""
+
 import os
 import html
 
 from ncatbot.plugin import BasePlugin, CompatibleEnrollment, Event
 from ncatbot.core import GroupMessage, PrivateMessage, BaseMessage
-from plugins.AdminPlugin.UsersManager import UsersManager
 from ncatbot.utils.logger import get_log
+
+from services.compat import CompatContext, get_default_context
 
 bot = CompatibleEnrollment  # 兼容回调函数注册器
 log = get_log()
@@ -16,13 +25,18 @@ class AdminPlugin(BasePlugin):
     info = "Users Administration"  # 插件描述
     dependencies = {}  # 插件依赖，格式: {"插件名": "版本要求"}
 
+    def __init__(self, *args, compat_context: CompatContext | None = None, **kwargs):
+        self.compat_context = compat_context or get_default_context()
+        super().__init__(*args, **kwargs)
+
     async def on_load(self):
         # 插件加载时执行的操作
         print(f"{self.name} 插件已加载")
         print(f"插件版本: {self.version}")
+        self.data.setdefault("ops_list", [])
         # 注册功能示例
-        self.users_manager = UsersManager()
-        
+        self.users_manager = self.compat_context.users
+
         self.register_admin_func(
             name="op",
             handler=self._on_add_op,
