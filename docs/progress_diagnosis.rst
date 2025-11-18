@@ -7,7 +7,7 @@
 | 模块 | 状态 | 最新进展 | 下一步 |
 | --- | --- | --- | --- |
 | 数据模型 & 连接 | ✅ 基础结构已补齐 | `services/db/models/` 覆盖 User/Group/Subscription/Play/PlayAlias/PlaySourceLink/PlaySnapshot/HLQEvent/HLQTicket/Metric/ErrorLog/SendQueue，`base.py` 统一 `utcnow`/枚举/软删，`connection.py` 默认 WAL + `check_same_thread=False`，`init_db` 一次性建表。 | 为 service 层提供统一的数据访问封装，补齐 `updated_at` 自动更新钩子以及必要索引。 |
-| JSON → SQLite 迁移 | ⚠️ 初版导入脚本可用 | `scripts/import_v0_json.py` 支持导入用户/群组/订阅/别名/跨源映射，提供 `--dry-run` 便于验收，但暂未覆盖 HLQ 快照、票务与指标。 | 扩展到 HLQ/快照/日志，加入校验/回滚策略与导入报告。 |
+| JSON → SQLite 迁移 | ✅ 覆盖核心与 HLQ 数据 | `scripts/import_v0_json.py` 现可导入用户/群组/订阅/别名/跨源映射，以及 HLQ 事件/票券、Saoju 快照和 Stats 指标/错误日志，`--dry-run` 用于批量回滚验收。 | 输出迁移校验报告并封装 service 访问层，便于自动化验收。 |
 | Service / Compat | ❌ 未落地 | 插件仍直接依赖 JSON DataManager，无独立 Service/Compat 包。 | 拆分 `services/user|subscription|alias|play` 并提供 Compat 代理，让主插件优先切换读取路径。 |
 | 呼啦圈链路 | ❌ 未落地 | 仍停留在 DataManager 的同步命令，尚无轮询器/事件/快照管理。 | 构建轮询任务、事件总线与快照管理器，并落地 `PlaySnapshot`/`HLQ*` 的读写流程。 |
 | 稳定性与运维 | ⚠️ 零散组件 | `services/system` 仅含网络探测/降级 helper，NapCat 自愈、维护模式、分级日志/告警尚未实现。 | 补齐 NapCat 健康检查、自愈脚本、`logs/*.log` 目录与 `scripts/verify_logs.py`。 |
@@ -17,7 +17,7 @@
 
 - SQLModel 结构现已覆盖 PRD v0.5 所需的主要实体：`services/db/models/` 下新增 Play、Alias、SourceLink、Snapshot、HLQEvent/HLQTicket 以及 Metrics/ErrorLog/SendQueue，统一使用 `utcnow()` 与 mixin 管理 `created_at/updated_at`、软删标记等字段。
 - `services/db/connection.py` 改为以 SQLModel `create_engine` 提供单例 engine/session，默认配置 `journal_mode=WAL`、`synchronous=NORMAL` 与 `check_same_thread=False`，满足 2C2G 服务器的并发与可靠性要求。
-- `scripts/import_v0_json.py` 可以把 `UsersManager.json` 与 `alias.json` 中的用户、群组、订阅、别名及 Legacy PlaySourceLink 导入 SQLite，支持 `--dry-run` 供预检查；但旧体系中的 HLQ 数据、统计指标与错误日志仍未迁移，需要在下一阶段补齐。
+- `scripts/import_v0_json.py` 已能把 `UsersManager.json`/`alias.json`/`HulaquanDataManager.json`/`SaojuDataManager.json`/`StatsDataManager.json` 中的用户、群组、订阅、别名、PlaySourceLink、HLQ 事件/票券、Saoju 快照以及指标/错误日志一次性导入 SQLite，`--dry-run` 可帮助批量回滚验收；下一步需补齐 service 层封装，方便插件直接消费数据库。
 
 ## 2. 服务层与兼容层
 
@@ -32,7 +32,7 @@
 ## 4. 稳定性与可观测性
 
 - 除 `services/system/network_health.py`、`error_protection.py`、`degradation.py` 外，没有 NapCat 健康检查、自愈脚本、维护模式开关，也没有 PRD 要求的 `logs/{framework,network,db,plugin,health_check}.log` 目录。
-- `Metric`/`ErrorLog`/`SendQueue` 虽已存在表结构，但尚无写入管道或监控脚本，`scripts/verify_logs.py` 也未实现。
+- `Metric`/`ErrorLog`/`SendQueue` 虽已存在表结构，且迁移脚本已能导入历史指标/报错，但线上写入管道与 `scripts/verify_logs.py` 仍未实现。
 
 ## 5. 测试与验收
 
