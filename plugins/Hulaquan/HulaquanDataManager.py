@@ -82,8 +82,24 @@ class HulaquanDataManager(BaseDataManager):
         recommendation_url = "https://clubz.cloudsation.com/site/getevent.html?filter=recommendation&access_token="
         try:
             recommendation_url = recommendation_url + "&limit=" + str(limit) + "&page=" + str(page)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(recommendation_url, timeout=8) as response:
+            
+            # 配置超时(包括DNS解析超时)
+            timeout = aiohttp.ClientTimeout(
+                total=15,      # 总超时
+                connect=5,     # 连接超时
+                sock_connect=5,# Socket连接超时(DNS解析)
+                sock_read=10   # 读取超时
+            )
+            
+            # 配置连接器(DNS缓存、连接池)
+            connector = aiohttp.TCPConnector(
+                limit=10,
+                ttl_dns_cache=300,  # DNS缓存5分钟
+                family=0  # 同时支持IPv4/IPv6
+            )
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(recommendation_url) as response:
                     json_data = await response.text()
                     json_data = json_data.encode().decode("utf-8-sig")  # 关键：去除BOM
                     json_data = json.loads(json_data)
@@ -95,6 +111,11 @@ class HulaquanDataManager(BaseDataManager):
                             if not tags or (tags and any(tag in event["tags"] for tag in tags)):
                                 result.append(event["basic_info"])
                     return json_data["count"], result
+        except asyncio.TimeoutError:
+            return "请求超时(可能是DNS解析失败或网络断连)", False
+        except aiohttp.ClientConnectorError as e:
+            # DNS解析错误或连接失败
+            return f"连接失败(DNS或网络问题): {e}", False
         except Exception as e:
             return f"Error fetching recommendation: {e}", False
 
@@ -192,8 +213,22 @@ class HulaquanDataManager(BaseDataManager):
     
     async def search_event_by_id_async(self, event_id):
         event_url = f"https://clubz.cloudsation.com/event/getEventDetails.html?id={event_id}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(event_url, timeout=15) as resp:
+        
+        timeout = aiohttp.ClientTimeout(
+            total=20,
+            connect=5,
+            sock_connect=5,
+            sock_read=15
+        )
+        
+        connector = aiohttp.TCPConnector(
+            limit=10,
+            ttl_dns_cache=300,
+            family=0
+        )
+        
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            async with session.get(event_url) as resp:
                 json_data = await resp.text()
                 json_data = json_data.encode().decode("utf-8-sig")  # 关键：去除BOM
                 return json.loads(json_data)

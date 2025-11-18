@@ -82,12 +82,19 @@ def user_command_wrapper(command_name):
                     import traceback
                     log.error(traceback.format_exc())
                     
-                    # 安全地通知管理员（避免再次触发错误）
+                    # 使用安全的错误通知(带死循环防护)
                     try:
-                        await this.on_traceback_message(f"{command_name} 命令异常: {e}", announce_admin=True)
+                        from services.system.error_protection import safe_send_error_notification
+                        await safe_send_error_notification(
+                            api=this.api,
+                            admin_id=str(User.admin_id),
+                            error=e,
+                            context=f"{command_name} 命令",
+                            include_traceback=True
+                        )
                     except Exception as notify_error:
                         # 如果通知失败，只记录日志，不再继续
-                        log.error(f"通知管理员失败: {notify_error}")
+                        log.error(f"安全错误通知失败: {notify_error}")
             return wrapper
         return decorator
 
@@ -121,6 +128,14 @@ class Hulaquan(BasePlugin):
         print(f"{self.name} 插件已加载")
         print(f"插件版本: {self.version}")
         
+        # 启动网络健康检查
+        try:
+            from services.system.network_health import network_health_checker
+            await network_health_checker.start_health_check()
+            print("✅ 网络健康检查已启动")
+        except Exception as e:
+            log.warning(f"网络健康检查启动失败: {e}")
+        
         # 从环境变量加载 Notion Token
         import os
         self._notion_token = self._notion_token or os.getenv('NOTION_TOKEN')
@@ -143,6 +158,15 @@ class Hulaquan(BasePlugin):
     async def on_close(self, *arg, **kwd):
         self.remove_scheduled_task("呼啦圈上新提醒")
         self.stop_hulaquan_announcer()
+        
+        # 停止网络健康检查
+        try:
+            from services.system.network_health import network_health_checker
+            await network_health_checker.stop_health_check()
+            print("✅ 网络健康检查已停止")
+        except Exception as e:
+            log.warning(f"网络健康检查停止失败: {e}")
+        
         await self.save_data_managers(on_close=True)
         return await super().on_close(*arg, **kwd)
     
