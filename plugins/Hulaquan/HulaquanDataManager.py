@@ -487,23 +487,22 @@ class HulaquanDataManager(BaseDataManager):
         """
         
         if (not old_data_all) and new_data:
-            # 如果旧数据不存在，那么所有新数据都判定为新上架
+            # 如果旧数据完全不存在，那么所有新数据都判定为新上架（首次初始化场景）
             print("旧数据不存在，所有新数据都判定为新上架")
             for i in new_data:
                 new_data[i]["update_status"] = 'new'
-                
-            return {'new': new_data.values()}
+            return {'new': list(new_data.values())}
         elif not (old_data_all and new_data):
-            # 如果旧数据新数据都为空 返回NONE
+            # 如果旧数据或新数据为空，返回空结果
             return {}
         else:
             old_data_dict = old_data_all.get("ticket_details", {})
-        if not old_data_dict:
-            # 如果旧数据没有票务细节项，所有新数据判定为新上架
-            print("旧数据无票务细节，所有新数据都判定为新上架")
-            for i in new_data.values():
-                i["update_status"] = 'new'
-            return {'new': list(new_data.values())}
+
+        # 如果旧数据存在但缺少 ticket_details，视为数据异常，本次不产生任何变更
+        if old_data_all and not old_data_dict and new_data:
+            # 依赖外部日志模块可能在静态分析时不可用，因此这里退回到简单 print，避免中断主流程
+            print("HulaquanDataManager: 旧数据存在但 ticket_details 为空，疑似数据丢失，本次 compare_tickets 返回空结果。")
+            return {}
         
         # 以上情况都不存在，新旧数据都正常，则开始遍历
         
