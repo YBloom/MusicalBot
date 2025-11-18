@@ -196,6 +196,10 @@ napcat
 napcat/
 logs/
 logs
+!logs/
+!logs/__init__.py
+!logs/metrics/
+!logs/metrics/__init__.py
 .vscode/
 data/G_access.json
 data/U_access.json
