@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import List, Optional
 
 from sqlalchemy import JSON, Column
+from sqlalchemy.orm import Mapped, relationship
 from sqlmodel import Field, Relationship, SQLModel
 
 from .base import SoftDelete, TimeStamped
 
 
-class User(SQLModel, TimeStamped, SoftDelete, table=True):
+class User(TimeStamped, SoftDelete, table=True):
     """QQ 用户模型，对应 PRD 中的 User 表。"""
 
     user_id: str = Field(primary_key=True, max_length=32)
@@ -23,5 +24,11 @@ class User(SQLModel, TimeStamped, SoftDelete, table=True):
         sa_column=Column(JSON, nullable=True),
     )
 
-    memberships: List["Membership"] = Relationship(back_populates="user")
-    subscriptions: List["Subscription"] = Relationship(back_populates="user")
+    memberships: Mapped[List["Membership"]] = Relationship(
+        back_populates="user",
+        sa_relationship=relationship("Membership", back_populates="user"),
+    )
+    subscriptions: Mapped[List["Subscription"]] = Relationship(
+        back_populates="user",
+        sa_relationship=relationship("Subscription", back_populates="user"),
+    )

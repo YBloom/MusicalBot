@@ -103,7 +103,12 @@
                 "event_title": " 环境式驻演音乐剧《阿波罗尼亚》",
                 "event_id": "3732",
                 "report_id": "1007",
-                "report_error_details": {},
+                "report_error_details": {
+                    "998877": [
+                        "价格与票面不符",
+                        "照片缺失"
+                    ]
+                },
                 "payable": "280"
             },
             "1010": {
