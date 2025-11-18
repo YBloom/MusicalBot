@@ -1,3 +1,5 @@
+"""System updater plugin that now consumes the compat context for auth checks."""
+
 import asyncio
 import os
 import shlex
@@ -7,7 +9,8 @@ from typing import Optional, Tuple
 
 from ncatbot.plugin import BasePlugin, CompatibleEnrollment
 from ncatbot.core import BaseMessage
-from typing import Any
+
+from services.compat import CompatContext, get_default_context
 
 # 兼容回调函数注册器（与项目其它插件保持一致风格）
 bot = CompatibleEnrollment
@@ -31,15 +34,13 @@ def _log_file(repo: Path) -> Path:
     return log_dir / "self_update.log"
 
 
-def _is_op_safe(user_id: str) -> bool:
-    # 优先使用 UsersManager 实例（模仿 Hulaquan 的实例模式）；失败则回退到环境变量
+def _is_op_safe(user_id: str, context: CompatContext | None = None) -> bool:
+    """Check admin privileges via the compat context (fallback to env vars)."""
+
+    compat = context or get_default_context()
     try:
-        # 单例模式：UsersManager.__new__ 保证同一实例
-        from plugins.AdminPlugin.UsersManager import UsersManager  # type: ignore
-        global _USERS_MANAGER
-        if '_USERS_MANAGER' not in globals() or _USERS_MANAGER is None:
-            _USERS_MANAGER = UsersManager()
-        return _USERS_MANAGER.is_op(str(user_id))
+        users = compat.users
+        return users.is_op(str(user_id))  # type: ignore[attr-defined]
     except Exception:
         ops = os.environ.get("SYSUPDATER_OPS", "").split(",")
         ops = [x.strip() for x in ops if x.strip()]
@@ -149,6 +150,10 @@ class SystemUpdater(BasePlugin):
     info = "系统自更新与重启：/sys-update 与 --napcat 模式"
     dependencies = {}
 
+    def __init__(self, *args, compat_context: CompatContext | None = None, **kwargs):
+        self.compat_context = compat_context or get_default_context()
+        super().__init__(*args, **kwargs)
+
     async def on_load(self):
         # 模仿现有插件的注册风格，补充描述/用法/示例
         self.register_admin_func(
@@ -166,7 +171,7 @@ class SystemUpdater(BasePlugin):
 
     async def _on_sys_update(self, msg: BaseMessage):
         # 权限校验
-        if not _is_op_safe(str(msg.user_id)):
+        if not _is_op_safe(str(msg.user_id), self.compat_context):
             await msg.reply("权限不足：仅管理员可用 /sys-update")
             return
 
