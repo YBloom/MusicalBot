@@ -1,7 +1,5 @@
 """呼啦圈相关表."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import List, Optional
 
@@ -12,7 +10,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import HLQTicketStatus, TimeStamped
 
 
-class HLQEvent(TimeStamped, table=True):
+class HLQEvent(TimeStamped, SQLModel, table=True):
     hlq_event_id: str = Field(primary_key=True, max_length=64)
     play_id: Optional[int] = Field(default=None, foreign_key="play.id", index=True)
     title: str = Field(max_length=256)
@@ -27,7 +25,7 @@ class HLQEvent(TimeStamped, table=True):
     )
 
 
-class HLQTicket(TimeStamped, table=True):
+class HLQTicket(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     ticket_id: str = Field(index=True, max_length=64)
     hlq_event_id: str = Field(foreign_key="hlqevent.hlq_event_id", index=True)

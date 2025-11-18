@@ -1,7 +1,5 @@
 """User table definition."""
 
-from __future__ import annotations
-
 from typing import List, Optional
 
 from sqlalchemy import JSON, Column
@@ -11,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import SoftDelete, TimeStamped
 
 
-class User(TimeStamped, SoftDelete, table=True):
+class User(TimeStamped, SoftDelete, SQLModel, table=True):
     """QQ 用户模型，对应 PRD 中的 User 表。"""
 
     user_id: str = Field(primary_key=True, max_length=32)
