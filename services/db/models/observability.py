@@ -1,7 +1,5 @@
 """Observability and send queue tables."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Optional
 
@@ -11,14 +9,14 @@ from sqlmodel import Field, SQLModel
 from .base import SendQueueStatus, TimeStamped, utcnow
 
 
-class Metric(SQLModel, TimeStamped, table=True):
+class Metric(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, max_length=128)
     value: float = Field(default=0)
     labels: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
 
-class ErrorLog(SQLModel, TimeStamped, table=True):
+class ErrorLog(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     scope: str = Field(index=True, max_length=64)
     code: Optional[str] = Field(default=None, max_length=32)
@@ -27,7 +25,7 @@ class ErrorLog(SQLModel, TimeStamped, table=True):
     ts: datetime = Field(default_factory=utcnow, index=True)
 
 
-class SendQueue(SQLModel, TimeStamped, table=True):
+class SendQueue(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     scope: str = Field(index=True, max_length=64)
     payload: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))

@@ -1,7 +1,5 @@
 """Group and membership tables."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import List, Optional
 
@@ -11,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import GroupType, SoftDelete, TimeStamped, utcnow
 
 
-class Group(SQLModel, TimeStamped, SoftDelete, table=True):
+class Group(TimeStamped, SoftDelete, SQLModel, table=True):
     group_id: str = Field(primary_key=True, max_length=32)
     name: Optional[str] = Field(default=None, max_length=128)
     group_type: GroupType = Field(default=GroupType.BROADCAST, nullable=False, index=True)
@@ -21,7 +19,7 @@ class Group(SQLModel, TimeStamped, SoftDelete, table=True):
     members: List["Membership"] = Relationship(back_populates="group")
 
 
-class Membership(SQLModel, TimeStamped, table=True):
+class Membership(TimeStamped, SQLModel, table=True):
     """用户-群 关系；多对多中间表。"""
 
     id: Optional[int] = Field(default=None, primary_key=True)

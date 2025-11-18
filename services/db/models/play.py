@@ -1,7 +1,5 @@
 """Play, alias, and source link models."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import List, Optional
 
@@ -11,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import PlaySource, TimeStamped
 
 
-class Play(SQLModel, TimeStamped, table=True):
+class Play(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True, max_length=256)
     name_norm: str = Field(index=True, max_length=256)
@@ -23,7 +21,7 @@ class Play(SQLModel, TimeStamped, table=True):
     snapshots: List["PlaySnapshot"] = Relationship(back_populates="play")
 
 
-class PlayAlias(SQLModel, TimeStamped, table=True):
+class PlayAlias(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     play_id: int = Field(foreign_key="play.id", nullable=False, index=True)
     alias: str = Field(index=True, max_length=256)
@@ -40,7 +38,7 @@ class PlayAlias(SQLModel, TimeStamped, table=True):
     )
 
 
-class PlaySourceLink(SQLModel, TimeStamped, table=True):
+class PlaySourceLink(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     play_id: int = Field(foreign_key="play.id", nullable=False, index=True)
     source: PlaySource = Field(nullable=False, index=True)
@@ -58,7 +56,7 @@ class PlaySourceLink(SQLModel, TimeStamped, table=True):
     )
 
 
-class PlaySnapshot(SQLModel, TimeStamped, table=True):
+class PlaySnapshot(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     play_id: int = Field(foreign_key="play.id", nullable=False, index=True)
     city_norm: Optional[str] = Field(default=None, index=True, max_length=64)

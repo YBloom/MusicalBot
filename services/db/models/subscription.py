@@ -1,7 +1,5 @@
 """Subscription-related tables."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from typing import List, Optional
 
@@ -11,7 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from .base import SubscriptionFrequency, SubscriptionTargetKind, TimeStamped
 
 
-class Subscription(SQLModel, TimeStamped, table=True):
+class Subscription(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="user.user_id", index=True)
 
@@ -20,7 +18,7 @@ class Subscription(SQLModel, TimeStamped, table=True):
     options: List["SubscriptionOption"] = Relationship(back_populates="subscription")
 
 
-class SubscriptionTarget(SQLModel, TimeStamped, table=True):
+class SubscriptionTarget(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     subscription_id: int = Field(foreign_key="subscription.id", nullable=False)
     kind: SubscriptionTargetKind = Field(nullable=False, index=True)
@@ -41,7 +39,7 @@ class SubscriptionTarget(SQLModel, TimeStamped, table=True):
     )
 
 
-class SubscriptionOption(SQLModel, TimeStamped, table=True):
+class SubscriptionOption(TimeStamped, SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     subscription_id: int = Field(foreign_key="subscription.id", nullable=False, unique=True)
     mute: bool = Field(default=False, nullable=False)
