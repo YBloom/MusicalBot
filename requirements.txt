@@ -9,7 +9,6 @@ requests>=2.32.4,<2.33.0  # https://github.com/psf/requests
 aiohttp>=3.9.0,<4.0.0  # 异步 HTTP 客户端，用于呼啦圈数据获取
 
 # HTML 解析
-beautifulsoup4>=4.12.0,<5.0.0  # HTML/XML 解析库，用于扫剧数据提取
 
 # 数据处理
 pandas>=2.3.0,<2.4.0  # 数据分析和处理
