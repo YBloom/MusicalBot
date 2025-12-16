@@ -287,12 +287,39 @@ class UsersManager(BaseDataManager):
             return await bot.api.post_private_msg(user_id, text)
    
     async def send_likes(self, bot: BasePlugin):
+        """给当日好友批量点赞（每日仅一次，持久化去重，避免自赞）。"""
         date = datetime.now().strftime("%Y-%m-%d")
-        if date in self.data["todays_likes"]:
+        # 已执行则跳过（依赖持久化，防止多次重启重复发送）
+        if date in self.data.get("todays_likes", []):
             return False
-        for i in self.users_list():
-            await bot.api.send_like(i, 10)
+
+        # 使用实时好友列表，避免包含自身或非好友账号
+        try:
+            result = await bot.api.get_friend_list(False)
+            friend_ids = [str(i.get("user_id")) for i in result.get("data", []) if "user_id" in i]
+        except Exception as e:
+            log.error(f"获取好友列表失败，取消当日点赞：{e}")
+            return False
+
+        # 先标记当日执行并持久化，避免中途重启造成重复执行
+        if "todays_likes" not in self.data:
+            self.data["todays_likes"] = []
         self.data["todays_likes"].append(date)
+        try:
+            await self.save()
+        except Exception as e:
+            log.error(f"保存点赞状态失败（将继续执行点赞）：{e}")
+
+        # 逐个尝试点赞；对上限/自赞等业务错误静默跳过
+        for uid in friend_ids:
+            try:
+                r = await bot.api.send_like(uid, 10)
+                # 如果返回结构中包含业务失败，也仅记录
+                if isinstance(r, dict) and r.get("status") == "failed":
+                    log.warning(f"点赞 {uid} 失败：{r.get('message') or r}")
+            except Exception as e:
+                log.warning(f"点赞 {uid} 异常，已跳过：{e}")
+                continue
         return True
     
     async def check_friend_status(self, bot: BasePlugin):
