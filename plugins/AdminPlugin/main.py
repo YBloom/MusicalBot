@@ -78,6 +78,18 @@ class AdminPlugin(BasePlugin):
             metadata={"category": "utility"}
         )
 
+        # 点赞功能开关：/like on|off|status
+        self.register_admin_func(
+            name="like",
+            handler=self._on_like_toggle,
+            prefix="/like",
+            description="开启/关闭自动点赞或查看状态",
+            usage="/like on | /like off | /like status",
+            examples=["/like on", "/like off", "/like status"],
+            tags=["like", "settings"],
+            metadata={"category": "settings"}
+        )
+
     async def add_send_managers_task(self, data=None):
         self.add_scheduled_task(
             job_func=self.on_send_pass_managers_event, 
@@ -148,6 +160,27 @@ class AdminPlugin(BasePlugin):
     async def on_private_message(self, msg: PrivateMessage):
         self.users_manager.add_user(msg.user_id)
         self.users_manager.add_chats_count(msg.user_id)
+
+    async def _on_like_toggle(self, msg: BaseMessage):
+        # 仅管理员可用
+        if not self.users_manager.is_op(msg.user_id):
+            await msg.reply("无权限操作。")
+            return
+        raw = (msg.raw_message or "").strip()
+        parts = raw.split()
+        arg = parts[1].lower() if len(parts) > 1 else "status"
+        if arg in ("on", "off"):
+            enabled = arg == "on"
+            ok = await self.users_manager.set_like_enabled(enabled)
+            if ok:
+                await msg.reply(f"自动点赞功能已{'开启' if enabled else '关闭'}。")
+            else:
+                await msg.reply("切换失败，请查看日志。")
+        else:
+            await msg.reply(
+                f"自动点赞当前状态：{'开启' if self.users_manager.is_like_enabled() else '关闭'}。\n"
+                "用法：/like on | /like off | /like status"
+            )
             
     @bot.request_event()
     async def handle_request(self, msg):
