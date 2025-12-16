@@ -55,6 +55,8 @@ class UsersManager(BaseDataManager):
         if "groups_list" not in self.data:
             self.data["groups_list"] = data["groups_list"] if first_init else []
         self.data.setdefault("todays_likes", [])
+        # 点赞功能开关（默认关闭）
+        self.data.setdefault("like_enabled", False)
         return super().on_load()
     
     
@@ -288,6 +290,9 @@ class UsersManager(BaseDataManager):
    
     async def send_likes(self, bot: BasePlugin):
         """给当日好友批量点赞（每日仅一次，持久化去重，避免自赞）。"""
+        # 功能开关：默认关闭
+        if not self.data.get("like_enabled", False):
+            return False
         date = datetime.now().strftime("%Y-%m-%d")
         # 已执行则跳过（依赖持久化，防止多次重启重复发送）
         if date in self.data.get("todays_likes", []):
@@ -320,6 +325,18 @@ class UsersManager(BaseDataManager):
             except Exception as e:
                 log.warning(f"点赞 {uid} 异常，已跳过：{e}")
                 continue
+        return True
+
+    def is_like_enabled(self) -> bool:
+        return bool(self.data.get("like_enabled", False))
+
+    async def set_like_enabled(self, enabled: bool) -> bool:
+        self.data["like_enabled"] = bool(enabled)
+        try:
+            await self.save()
+        except Exception as e:
+            log.error(f"保存点赞开关失败：{e}")
+            return False
         return True
     
     async def check_friend_status(self, bot: BasePlugin):
