@@ -82,7 +82,10 @@ class HulaquanDataManager(BaseDataManager):
         recommendation_url = "https://clubz.cloudsation.com/site/getevent.html?filter=recommendation&access_token="
         try:
             recommendation_url = recommendation_url + "&limit=" + str(limit) + "&page=" + str(page)
-            async with aiohttp.ClientSession() as session:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            }
+            async with aiohttp.ClientSession(headers=headers) as session:
                 async with session.get(recommendation_url, timeout=8) as response:
                     json_data = await response.text()
                     json_data = json_data.encode().decode("utf-8-sig")  # 关键：去除BOM
@@ -192,7 +195,10 @@ class HulaquanDataManager(BaseDataManager):
     
     async def search_event_by_id_async(self, event_id):
         event_url = f"https://clubz.cloudsation.com/event/getEventDetails.html?id={event_id}"
-        async with aiohttp.ClientSession() as session:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(event_url, timeout=15) as resp:
                 json_data = await resp.text()
                 json_data = json_data.encode().decode("utf-8-sig")  # 关键：去除BOM

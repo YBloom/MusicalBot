@@ -1,6 +1,10 @@
 # ========= 导入必要模块 ==========
 from ncatbot.core import BotClient, GroupMessage, PrivateMessage, BaseMessage
 from ncatbot.utils import get_log
+from ncatbot.adapter import Route
+import os
+import asyncio
+import subprocess
 
 
 # ========== 创建 BotClient ==========
@@ -72,5 +76,38 @@ if __name__ == "__main__":
         _patched_config_napcat()
     except Exception:
         pass
+
+    # Hook Route.post to catch NapCat send failures (retcode=1200 + "网络连接异常") and trigger system restart
+    try:
+        if hasattr(Route, "post"):
+            _orig_route_post = Route.post
+
+            async def _patched_route_post(self, *args, **kwargs):
+                res = await _orig_route_post(self, *args, **kwargs)
+                if isinstance(res, dict):
+                    retcode = res.get("retcode")
+                    msg = res.get("msg") or res.get("wording") or res.get("message") or ""
+                    if str(retcode) == "1200" and "网络连接异常" in str(msg):
+                        restart_cmd = os.environ.get("NAPCAT_RESTART_CMD", "systemctl restart napcat")
+                        _log.warning("[auto-restart] detected send failure, executing: %s", restart_cmd)
+                        try:
+                            subprocess.Popen(
+                                restart_cmd,
+                                shell=True,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                            )
+                            # brief backoff to avoid rapid-fire restarts
+                            await asyncio.sleep(3)
+                        except Exception as e:
+                            _log.error("[auto-restart] restart command failed: %s", e)
+                return res
+
+            Route.post = _patched_route_post
+            _log.warning("[auto-restart] Route.post hooked for NapCat send failures")
+        else:
+            _log.warning("[auto-restart] Route.post not found; restart hook not installed")
+    except Exception as e:
+        _log.error("[auto-restart] failed to hook Route.post: %s", e)
 
     bot.run(bt_uin=bot_qq, root="3022402752", enable_webui_interaction=False) # 这里写 Bot 的 QQ 号
