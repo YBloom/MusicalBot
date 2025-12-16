@@ -128,6 +128,8 @@ class Hulaquan(BasePlugin):
             print(f"✅ Notion Token 已加载（自动同步功能可用）")
         else:
             print(f"⚠️  未配置 NOTION_TOKEN（自动同步功能不可用）")
+        # 防止错误通知过程中递归触发
+        self._in_traceback_handler = False
         self._hulaquan_announcer_task = None
         self._hulaquan_announcer_interval = 120
         self._hulaquan_announcer_running = False
@@ -1189,13 +1191,31 @@ class Hulaquan(BasePlugin):
             import traceback
             log.error(traceback.format_exc())
             
-    @user_command_wrapper("traceback")            
     async def on_traceback_message(self, context="", announce_admin=True):
-        #log.error(f"呼啦圈上新提醒失败：\n" + traceback.format_exc())
-        error_msg = f"{context}：\n" + traceback.format_exc()
+        # 生成错误文本并记录
+        try:
+            import traceback as _tb
+            tb_text = _tb.format_exc()
+        except Exception:
+            tb_text = ""
+        error_msg = f"{context}：\n{tb_text}" if tb_text else str(context)
         log.error(error_msg)
-        if announce_admin:
-            await self.api.post_private_msg(User.admin_id, error_msg)
+
+        # 防重入：如果通知过程中再次触发错误，仅记录日志
+        in_handler = getattr(self, "_in_traceback_handler", False)
+        if in_handler:
+            return
+        if not announce_admin:
+            return
+        try:
+            self._in_traceback_handler = True
+            # 通知管理员失败时静默降级（仅写日志，不再抛出）
+            try:
+                await self.api.post_private_msg(User.admin_id, error_msg)
+            except Exception as notify_error:
+                log.error(f"通知管理员失败: {notify_error}")
+        finally:
+            self._in_traceback_handler = False
     
     @user_command_wrapper("add_alias")        
     async def on_set_alias(self, msg: BaseMessage):
